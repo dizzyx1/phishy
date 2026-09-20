@@ -12,7 +12,7 @@ import { unrollRedirects } from "./detectors/redirect";
 import { checkDns } from "./detectors/dns";
 import { getDomainIntel } from "./detectors/domainIntel";
 import { checkThreatIntel } from "./detectors/threatIntel";
-import type { Finding, ScanResult } from "./types";
+import type { Finding, ScanResult, RedirectHop, ThreatIntelResult, DnsInfo, DomainIntel } from "./types";
 
 export async function scanUrl(rawInput: string): Promise<ScanResult> {
   const warnings: string[] = [];
@@ -69,17 +69,17 @@ export async function scanUrl(rawInput: string): Promise<ScanResult> {
 
   // Collect findings from network checks
   const networkFindings: Finding[] = [];
-  let redirectChain: any[] = [];
+  let redirectChain: RedirectHop[] = [];
   let finalUrl: string | null = null;
-  let dnsInfo = null;
-  let domainIntelInfo = null;
-  let threatIntelList: any[] = [];
+  let dnsInfo: DnsInfo | null = null;
+  let domainIntelInfo: DomainIntel | null = null;
+  let threatIntelList: ThreatIntelResult[] = [];
 
   if (redirectRes.status === "fulfilled") {
     redirectChain = redirectRes.value.chain;
     networkFindings.push(...redirectRes.value.findings);
     if (redirectChain.length > 0) {
-      finalUrl = redirectChain.at(-1).url;
+      finalUrl = redirectChain.at(-1)?.url ?? null;
     }
   } else {
     warnings.push("Redirect chain tracking timed out or failed");

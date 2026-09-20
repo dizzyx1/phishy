@@ -75,7 +75,7 @@ export function detectTyposquat(hostname: string): Finding[] {
 
   for (const brand of POPULAR_DOMAINS) {
     // Exact match → user is legitimately on the brand's domain
-    if (sld === brand) break;
+    if (sld === brand) continue;
 
     const dist = levenshtein(sld, brand);
     if (dist > 0 && dist <= 2) {

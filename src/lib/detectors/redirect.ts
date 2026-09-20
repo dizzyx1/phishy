@@ -17,24 +17,6 @@ export async function unrollRedirects(
   const findings: Finding[] = [];
   const chain: RedirectHop[] = [];
 
-  try {
-    const response = await axios.get(urlString, {
-      maxRedirects: MAX_REDIRECTS,
-      timeout: TIMEOUT_MS,
-      validateStatus: () => true, // Accept all status codes
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-      },
-    });
-
-    // Axios follows redirects automatically; we need to track manually
-    // For simplicity, we'll do a HEAD request without following redirects first
-  } catch (err) {
-    // Network error or timeout — not necessarily suspicious
-    return { chain, findings };
-  }
-
   // Manual redirect tracking
   let currentUrl = urlString;
   let hopCount = 0;

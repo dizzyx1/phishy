@@ -54,8 +54,8 @@ export default function Home() {
 
       const data: ScanResult = await res.json();
       setResult(data);
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setScanning(false);
     }
