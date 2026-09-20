@@ -1,26 +1,68 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --white: #ffffff;
+  --ocean-50: #f0f7ff;
+  --ocean-100: #e0efff;
+  --ocean-200: #b9dbfe;
+  --ocean-300: #7cc1fd;
+  --ocean-400: #36a3f9;
+  --ocean-500: #0c87eb;
+  --ocean-600: #006ac8;
+  --ocean-700: #0055a3;
+  --ocean-800: #054986;
+  --ocean-900: #0a3d6f;
+
+  --gray-50: #f8f9fa;
+  --gray-100: #f0f1f3;
+  --gray-200: #e2e5e9;
+  --gray-300: #cdd2d8;
+  --gray-400: #a3abb6;
+  --gray-500: #7a8494;
+  --gray-600: #5f6878;
+  --gray-700: #464e5c;
+  --gray-800: #2d3440;
+  --gray-900: #1a1f28;
+
+  --danger: #e03e3e;
+  --danger-bg: #fef2f2;
+  --warning: #e59500;
+  --warning-bg: #fffbeb;
+  --safe: #16a34a;
+  --safe-bg: #f0fdf4;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  height: 100%;
+  margin: 0;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  background: var(--white);
+  color: var(--gray-900);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
 }
