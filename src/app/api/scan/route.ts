@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { scanUrl } from "@/lib/scanner";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -24,8 +26,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error("Scan error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
     return NextResponse.json(
-      { error: "Failed to complete URL scan. Please check the input and try again." },
+      {
+        error: "Failed to complete URL scan. Please check the input and try again.",
+        details: errorMessage,
+        stack: process.env.NODE_ENV === "development" ? errorStack : undefined,
+      },
       { status: 500 }
     );
   }

@@ -10,15 +10,6 @@
 
 import type { DnsInfo, Finding } from "../types";
 
-// Dynamically import dns only if available (won't work in Vercel edge/serverless)
-let dns: typeof import("dns").promises | null = null;
-try {
-  // @ts-ignore - dynamic import
-  dns = require("dns").promises;
-} catch {
-  // DNS module not available in this environment
-}
-
 export async function checkDns(hostname: string): Promise<{
   dns: DnsInfo | null;
   findings: Finding[];
@@ -29,45 +20,35 @@ export async function checkDns(hostname: string): Promise<{
   let resolves = false;
   let hasValidMx = false;
 
-  // Skip DNS checks if module is unavailable (serverless environment)
-  if (!dns) {
-    return {
-      dns: null,
-      findings: [],
-    };
-  }
-
   try {
+    const dns = await import("dns").then((m) => m.promises).catch(() => null);
+    if (!dns) {
+      return { dns: null, findings: [] };
+    }
+
     // A records (IPv4)
     const aResult = await dns.resolve4(hostname).catch(() => []);
     aRecords = aResult;
     if (aRecords.length > 0) {
       resolves = true;
     }
-  } catch {
-    // Falls through to check MX
-  }
 
-  try {
     // MX records (mail exchange)
     const mxResult = await dns.resolveMx(hostname).catch(() => []);
     mxRecords = mxResult.map((r) => r.exchange);
     hasValidMx = mxRecords.length > 0;
-  } catch {
-    // No MX records
-  }
 
-  // Try AAAA if no A records
-  if (!resolves) {
-    try {
+    // Try AAAA if no A records
+    if (!resolves) {
       const aaaaResult = await dns.resolve6(hostname).catch(() => []);
       if (aaaaResult.length > 0) {
         resolves = true;
         aRecords.push(...aaaaResult);
       }
-    } catch {
-      // Does not resolve at all
     }
+  } catch {
+    // DNS check failed or unsupported in this runtime
+    return { dns: null, findings: [] };
   }
 
   if (!resolves) {

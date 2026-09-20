@@ -12,20 +12,17 @@ import { unrollRedirects } from "./detectors/redirect";
 import { checkDns } from "./detectors/dns";
 import { getDomainIntel } from "./detectors/domainIntel";
 import { checkThreatIntel } from "./detectors/threatIntel";
+import { normalizeUrl, parseAndValidateUrl } from "./urlNormalizer";
 import type { Finding, ScanResult, RedirectHop, ThreatIntelResult, DnsInfo, DomainIntel } from "./types";
 
 export async function scanUrl(rawInput: string): Promise<ScanResult> {
   const warnings: string[] = [];
 
-  // Normalize input URL (prepend https:// if missing)
-  let normalizedUrl = rawInput.trim();
-  if (!/^https?:\/\//i.test(normalizedUrl)) {
-    normalizedUrl = `https://${normalizedUrl}`;
-  }
-
+  let normalizedUrl = "";
   let hostname = "";
   try {
-    const parsed = new URL(normalizedUrl);
+    normalizedUrl = normalizeUrl(rawInput);
+    const parsed = parseAndValidateUrl(normalizedUrl);
     hostname = parsed.hostname;
   } catch {
     // Malformed URL

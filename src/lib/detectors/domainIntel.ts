@@ -5,7 +5,6 @@
  * Newly registered domains (< 30 days) are flagged as high-risk.
  */
 
-import { lookupAsync } from "whois-json";
 import type { DomainIntel, Finding } from "../types";
 
 const YOUNG_DOMAIN_THRESHOLD_DAYS = 30;
@@ -18,7 +17,22 @@ export async function getDomainIntel(hostname: string): Promise<{
   let intel: DomainIntel | null = null;
 
   try {
-    const whoisData = await lookupAsync(hostname, { timeout: 8000 });
+    // Dynamic import to prevent bundler / serverless crash if whois-json or raw socket fails
+    const whoisModule = await import("whois-json").catch(() => null);
+    const lookupAsync = whoisModule?.lookupAsync || whoisModule?.default?.lookupAsync;
+
+    if (!lookupAsync) {
+      return { intel: null, findings: [] };
+    }
+
+    const whoisData = await Promise.race([
+      lookupAsync(hostname, { timeout: 5000 }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000))
+    ]).catch(() => null);
+
+    if (!whoisData) {
+      return { intel: null, findings: [] };
+    }
 
     const creationDate = extractDate(
       whoisData.creationDate || whoisData.created || whoisData.registrationDate
@@ -56,7 +70,7 @@ export async function getDomainIntel(hostname: string): Promise<{
     }
   } catch (err) {
     // WHOIS lookup failed or timed out — not necessarily malicious
-    // We'll just return null intel
+    return { intel: null, findings: [] };
   }
 
   return { intel, findings };

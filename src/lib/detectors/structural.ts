@@ -6,6 +6,7 @@
  */
 
 import type { Finding } from "../types";
+import { normalizeUrl, parseAndValidateUrl } from "../urlNormalizer";
 
 // TLDs frequently abused in phishing campaigns
 const SUSPICIOUS_TLDS = new Set([
@@ -59,7 +60,8 @@ export function detectStructuralFlags(urlString: string): Finding[] {
 
   let parsed: URL;
   try {
-    parsed = new URL(urlString);
+    const normalized = normalizeUrl(urlString);
+    parsed = parseAndValidateUrl(normalized);
   } catch {
     findings.push({
       id: "structure-invalid-url",
