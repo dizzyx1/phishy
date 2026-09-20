@@ -9,6 +9,7 @@
  */
 
 import type { DnsInfo, Finding } from "../types";
+import { getBaseDomain } from "./redirect";
 
 export async function checkDns(hostname: string): Promise<{
   dns: DnsInfo | null;
@@ -33,11 +34,6 @@ export async function checkDns(hostname: string): Promise<{
       resolves = true;
     }
 
-    // MX records (mail exchange)
-    const mxResult = await dns.resolveMx(hostname).catch(() => []);
-    mxRecords = mxResult.map((r) => r.exchange);
-    hasValidMx = mxRecords.length > 0;
-
     // Try AAAA if no A records
     if (!resolves) {
       const aaaaResult = await dns.resolve6(hostname).catch(() => []);
@@ -46,6 +42,18 @@ export async function checkDns(hostname: string): Promise<{
         aRecords.push(...aaaaResult);
       }
     }
+
+    // MX records (mail exchange) - check apex/base domain as well if hostname is a subdomain (like www.google.com)
+    let mxResult = await dns.resolveMx(hostname).catch(() => []);
+    if (mxResult.length === 0) {
+      const baseDomain = getBaseDomain(hostname);
+      if (baseDomain !== hostname.toLowerCase()) {
+        mxResult = await dns.resolveMx(baseDomain).catch(() => []);
+      }
+    }
+
+    mxRecords = mxResult.map((r) => r.exchange);
+    hasValidMx = mxRecords.length > 0;
   } catch {
     // DNS check failed or unsupported in this runtime
     return { dns: null, findings: [] };
