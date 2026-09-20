@@ -20,7 +20,8 @@ export type FindingCategory =
   | "redirect"
   | "domain-intel"
   | "dns"
-  | "threat-intel";
+  | "threat-intel"
+  | "ssl";
 
 export interface RedirectHop {
   url: string;
@@ -47,6 +48,22 @@ export interface ThreatIntelResult {
   details: string | null;
 }
 
+export interface SslHeadersInfo {
+  isHttps: boolean;
+  hasHsts: boolean;
+  hasCsp: boolean;
+  hasXFrameOptions: boolean;
+  hasXContentTypeOptions: boolean;
+  serverHeader: string | null;
+}
+
+export interface SiteOverview {
+  title: string | null;
+  description: string | null;
+  category: string | null;
+  source: string;
+}
+
 export interface ScanResult {
   /** Original URL submitted */
   url: string;
@@ -68,6 +85,10 @@ export interface ScanResult {
   dns: DnsInfo | null;
   /** Third-party threat intel results */
   threatIntel: ThreatIntelResult[];
+  /** Target site SSL and Security Headers */
+  sslInfo: SslHeadersInfo | null;
+  /** Target site overview and descriptive summary */
+  siteOverview: SiteOverview | null;
   /** ISO timestamp of when the scan was performed */
   scannedAt: string;
   /** Whether external checks timed out or failed */

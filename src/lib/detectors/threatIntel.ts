@@ -65,10 +65,9 @@ export async function checkThreatIntel(
     checks.push(
       (async () => {
         try {
-          // VirusTotal requires URL-id (base64 of URL without padding)
+          // VirusTotal requires base64url-encoded URL without padding
           const urlId = Buffer.from(targetUrl)
-            .toString("base64")
-            .replace(/=/g, "");
+            .toString("base64url");
           const res = await axios.get(
             `https://www.virustotal.com/api/v3/urls/${urlId}`,
             {
@@ -78,13 +77,29 @@ export async function checkThreatIntel(
           );
 
           const stats = res.data?.data?.attributes?.last_analysis_stats as Record<string, number> | undefined;
-          const maliciousCount = (stats?.malicious ?? 0) + (stats?.suspicious ?? 0);
+          const malicious = stats?.malicious ?? 0;
+          const suspicious = stats?.suspicious ?? 0;
+          const totalVendors = Object.values(stats ?? {}).reduce((a, b) => a + b, 0);
+
+          // Industry standard: Require at least 2 malicious or 3 suspicious/malicious vendors to reach consensus
+          // This eliminates single-engine heuristic noise on high-traffic domains like google.com
+          const isFlagged = malicious >= 2 || (malicious + suspicious) >= 3;
+
+          let detailsMsg = "No threats detected";
+          if (stats && totalVendors > 0) {
+            if (isFlagged) {
+              detailsMsg = `${malicious + suspicious} / ${totalVendors} security vendors flagged this URL as malicious`;
+            } else if (malicious + suspicious > 0) {
+              detailsMsg = `${malicious + suspicious} / ${totalVendors} vendors flagged (below consensus threshold — engine noise)`;
+            } else {
+              detailsMsg = `0 / ${totalVendors} vendors detected threats (Clean)`;
+            }
+          }
+
           results.push({
             source: "VirusTotal",
-            flagged: maliciousCount > 0,
-            details: stats
-              ? `${maliciousCount} / ${Object.values(stats).reduce((a, b) => a + b, 0)} security vendors flagged this URL`
-              : "No report available",
+            flagged: isFlagged,
+            details: detailsMsg,
           });
         } catch {
           results.push({
@@ -102,8 +117,9 @@ export async function checkThreatIntel(
     checks.push(
       (async () => {
         try {
+          // URLscan requires URL search
           const res = await axios.get(
-            `https://urlscan.io/api/v1/search/?q=domain:${hostname}`,
+            `https://urlscan.io/api/v1/search/?q=page.url:"${targetUrl}"`,
             {
               headers: { "API-Key": process.env.URLSCAN_API_KEY },
               timeout: 5000,

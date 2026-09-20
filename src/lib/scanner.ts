@@ -12,8 +12,10 @@ import { unrollRedirects } from "./detectors/redirect";
 import { checkDns } from "./detectors/dns";
 import { getDomainIntel } from "./detectors/domainIntel";
 import { checkThreatIntel } from "./detectors/threatIntel";
+import { checkSslAndHeaders } from "./detectors/sslHeaders";
+import { getSiteOverview } from "./detectors/siteOverview";
 import { normalizeUrl, parseAndValidateUrl } from "./urlNormalizer";
-import type { Finding, ScanResult, RedirectHop, ThreatIntelResult, DnsInfo, DomainIntel } from "./types";
+import type { Finding, ScanResult, RedirectHop, ThreatIntelResult, DnsInfo, DomainIntel, SslHeadersInfo, SiteOverview } from "./types";
 
 export async function scanUrl(rawInput: string): Promise<ScanResult> {
   const warnings: string[] = [];
@@ -45,6 +47,8 @@ export async function scanUrl(rawInput: string): Promise<ScanResult> {
       domainIntel: null,
       dns: null,
       threatIntel: [],
+      sslInfo: null,
+      siteOverview: null,
       scannedAt: new Date().toISOString(),
       warnings: ["Unable to parse URL"],
     };
@@ -56,12 +60,14 @@ export async function scanUrl(rawInput: string): Promise<ScanResult> {
   const structuralFindings = detectStructuralFlags(normalizedUrl);
 
   // 2. Network-based checks (run in parallel with timeouts)
-  const [redirectRes, dnsRes, domainIntelRes, threatIntelRes] =
+  const [redirectRes, dnsRes, domainIntelRes, threatIntelRes, sslRes, overviewRes] =
     await Promise.allSettled([
       unrollRedirects(normalizedUrl),
       checkDns(hostname),
       getDomainIntel(hostname),
       checkThreatIntel(normalizedUrl, hostname),
+      checkSslAndHeaders(normalizedUrl),
+      getSiteOverview(normalizedUrl, hostname)
     ]);
 
   // Collect findings from network checks
@@ -71,12 +77,16 @@ export async function scanUrl(rawInput: string): Promise<ScanResult> {
   let dnsInfo: DnsInfo | null = null;
   let domainIntelInfo: DomainIntel | null = null;
   let threatIntelList: ThreatIntelResult[] = [];
+  let sslInfo: SslHeadersInfo | null = null;
+  let siteOverview: SiteOverview | null = null;
 
   if (redirectRes.status === "fulfilled") {
     redirectChain = redirectRes.value.chain;
     networkFindings.push(...redirectRes.value.findings);
     if (redirectChain.length > 0) {
       finalUrl = redirectChain.at(-1)?.url ?? null;
+      // If we got redirected, the SSL & overview might be better verified against the final URL
+      // (For this implementation, we rely on the initial checks that follow redirects internally)
     }
   } else {
     warnings.push("Redirect chain tracking timed out or failed");
@@ -98,7 +108,6 @@ export async function scanUrl(rawInput: string): Promise<ScanResult> {
 
   if (threatIntelRes.status === "fulfilled") {
     threatIntelList = threatIntelRes.value;
-    // Add findings for flagged third-party sources
     for (const ti of threatIntelList) {
       if (ti.flagged) {
         networkFindings.push({
@@ -112,6 +121,19 @@ export async function scanUrl(rawInput: string): Promise<ScanResult> {
     }
   }
 
+  if (sslRes.status === "fulfilled") {
+    sslInfo = sslRes.value.sslInfo;
+    networkFindings.push(...sslRes.value.findings);
+  } else {
+    warnings.push("SSL & Security Headers check timed out or failed");
+  }
+
+  if (overviewRes.status === "fulfilled") {
+    siteOverview = overviewRes.value;
+  } else {
+    warnings.push("Site Overview (web search/metadata) extraction failed");
+  }
+
   // Aggregate all findings
   const allFindings = [
     ...homoglyphFindings,
@@ -121,19 +143,16 @@ export async function scanUrl(rawInput: string): Promise<ScanResult> {
   ];
 
   // Calculate 0-100 risk score
-  // Sum severities, cap at 100, apply diminishing returns for multiple low-severity flags
   let rawScore = 0;
   for (const f of allFindings) {
     rawScore += f.severity;
   }
 
-  // If any threat intel source flagged it, minimum score is 75
   const hasThreatIntelFlag = threatIntelList.some((t) => t.flagged);
   if (hasThreatIntelFlag) {
-    rawScore = Math.max(rawScore, 75);
+    rawScore = Math.max(rawScore, 50);
   }
 
-  // Cap score between 0 and 100
   const finalScore = Math.min(Math.max(Math.round(rawScore), 0), 100);
 
   // Derive human-readable verdict
@@ -159,6 +178,8 @@ export async function scanUrl(rawInput: string): Promise<ScanResult> {
     domainIntel: domainIntelInfo,
     dns: dnsInfo,
     threatIntel: threatIntelList,
+    sslInfo,
+    siteOverview,
     scannedAt: new Date().toISOString(),
     warnings,
   };

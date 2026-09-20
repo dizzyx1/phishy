@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
   Shield,
@@ -17,12 +18,14 @@ import {
   History,
   FileWarning,
   Link,
+  Lock,
 } from "lucide-react";
 import type {
   ScanResult,
   Finding,
   FindingCategory,
   RedirectHop,
+  SslHeadersInfo,
 } from "@/lib/types";
 
 export default function Home() {
@@ -75,8 +78,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Header */}
-      <header className="border-b border-[var(--gray-100)] bg-white">
+      <header className="border-b border-[var(--gray-100)] bg-white sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
           <Shield className="w-7 h-7 text-[var(--ocean-600)]" strokeWidth={2} />
           <h1 className="text-xl font-semibold text-[var(--gray-900)] tracking-tight">
@@ -85,45 +87,24 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Hero & Scanner */}
       <main className="flex-1 flex flex-col">
         <section className="bg-[var(--ocean-50)] border-b border-[var(--ocean-100)]">
           <div className="max-w-4xl mx-auto px-4 py-12 md:py-16 text-center">
             <h2 className="text-2xl md:text-3xl font-semibold text-[var(--gray-900)] mb-3">
-              Scan any URL for phishing threats
+              Scan and analyse any URL.
             </h2>
             <p className="text-[var(--gray-500)] text-sm md:text-base max-w-xl mx-auto mb-8">
               Detect homoglyphs, typosquatting, malicious redirects, suspicious
               domains, and more — in seconds.
             </p>
 
-            {/* Scanner Input */}
-            <div className="max-w-2xl mx-auto flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--gray-400)]" />
-                <input
-                  type="text"
-                  placeholder="Enter a URL to scan..."
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={scanning}
-                  className="w-full h-12 pl-11 pr-4 rounded-lg border border-[var(--gray-200)] bg-white text-[var(--gray-900)] placeholder:text-[var(--gray-400)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ocean-300)] focus:border-[var(--ocean-400)] transition disabled:opacity-60 shadow-sm"
-                />
-              </div>
-              <button
-                onClick={handleScan}
-                disabled={scanning || !url.trim()}
-                className="h-12 px-6 rounded-lg bg-[var(--ocean-600)] text-white font-medium text-sm hover:bg-[var(--ocean-700)] active:bg-[var(--ocean-800)] disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {scanning ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Shield className="w-4 h-4" />
-                )}
-                {scanning ? "Scanning..." : "Scan URL"}
-              </button>
-            </div>
+            <ScanInput
+              url={url}
+              setUrl={setUrl}
+              handleScan={handleScan}
+              scanning={scanning}
+              handleKeyDown={handleKeyDown}
+            />
 
             {error && (
               <p className="mt-4 text-sm text-[var(--danger)]">{error}</p>
@@ -131,67 +112,153 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Results */}
-        {result && (
-          <section ref={resultRef} className="py-8 md:py-12">
-            <div className="max-w-4xl mx-auto px-4">
-              <Report result={result} />
-            </div>
-          </section>
-        )}
+        <AnimatePresence mode="wait">
+          {scanning && <ScanProgress key="progress" />}
+          {result && !scanning && (
+            <motion.section
+              key="result"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              ref={resultRef}
+              className="py-8 md:py-12"
+            >
+              <div className="max-w-4xl mx-auto px-4">
+                <Report result={result} />
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
 
-        {/* Features when no results */}
         {!result && !scanning && (
           <section className="py-12 md:py-16">
             <div className="max-w-4xl mx-auto px-4">
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <FeatureCard
-                  icon={<FileWarning className="w-5 h-5" />}
-                  title="Homoglyph Detection"
-                  desc="Spotting lookalike Unicode characters used to forge legitimate-looking domains"
-                />
-                <FeatureCard
-                  icon={<Search className="w-5 h-5" />}
-                  title="Typosquat Analysis"
-                  desc="Catching domains that are one typo away from popular sites"
-                />
-                <FeatureCard
-                  icon={<AlertTriangle className="w-5 h-5" />}
-                  title="Structural Red Flags"
-                  desc="Detecting raw IPs, @ symbols, excessive subdomains, and more"
-                />
-                <FeatureCard
-                  icon={<Link className="w-5 h-5" />}
-                  title="Redirect Unrolling"
-                  desc="Following shortened URLs and redirect chains to the real destination"
-                />
-                <FeatureCard
-                  icon={<Globe className="w-5 h-5" />}
-                  title="Domain Intelligence"
-                  desc="WHOIS lookup to flag newly registered, short-lived domains"
-                />
-                <FeatureCard
-                  icon={<Shield className="w-5 h-5" />}
-                  title="Threat Intel APIs"
-                  desc="Cross-referencing with Google Safe Browsing, VirusTotal, URLscan"
-                />
+                {[
+                  { icon: <FileWarning />, title: "Homoglyph Detection", desc: "Spotting lookalike Unicode characters" },
+                  { icon: <Search />, title: "Typosquat Analysis", desc: "Catching domains one typo away" },
+                  { icon: <AlertTriangle />, title: "Structural Red Flags", desc: "Detecting raw IPs and subdomains" },
+                  { icon: <Link />, title: "Redirect Unrolling", desc: "Following chains to the destination" },
+                  { icon: <Globe />, title: "Domain Intelligence", desc: "WHOIS lookup and domain age" },
+                  { icon: <Shield />, title: "Threat Intel APIs", desc: "Cross-referencing global blacklists" },
+                ].map((f, i) => (
+                  <motion.div key={i} whileHover={{ y: -5 }}>
+                    <FeatureCard {...f} />
+                  </motion.div>
+                ))}
               </div>
             </div>
           </section>
         )}
       </main>
-
-      {/* Footer */}
       <footer className="border-t border-[var(--gray-100)] bg-white py-4">
-        <div className="max-w-4xl mx-auto px-4 text-center text-xs text-[var(--gray-400)]">
-          Phishr — URL Security Scanner
+        <div className="max-w-4xl mx-auto px-4 flex items-center justify-between text-xs text-[var(--gray-400)]">
+          <span>Phishr — URL Security Scanner</span>
+          <a
+            href="https://github.com/dizzyx1/phishr"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub Repository"
+            className="text-[var(--gray-400)] hover:text-[var(--gray-600)] transition-colors p-1 rounded-md"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                fillRule="evenodd"
+                d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </a>
         </div>
       </footer>
     </div>
   );
 }
 
-/* ----------  Sub-components ---------- */
+function ScanInput({
+  url,
+  setUrl,
+  handleScan,
+  scanning,
+  handleKeyDown,
+}: {
+  url: string;
+  setUrl: (v: string) => void;
+  handleScan: () => void;
+  scanning: boolean;
+  handleKeyDown: (e: React.KeyboardEvent) => void;
+}) {
+  return (
+    <div className="max-w-2xl mx-auto flex flex-col sm:flex-row gap-3">
+      <div className="relative flex-1">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--gray-400)]" />
+        <input
+          type="text"
+          placeholder="Enter a URL to scan..."
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={scanning}
+          className="w-full h-12 pl-11 pr-4 rounded-lg border border-[var(--gray-200)] bg-white text-[var(--gray-900)] placeholder:text-[var(--gray-400)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ocean-300)] focus:border-[var(--ocean-400)] transition disabled:opacity-60 shadow-sm"
+        />
+      </div>
+      <button
+        onClick={handleScan}
+        disabled={scanning || !url.trim()}
+        className="h-12 px-6 rounded-lg bg-[var(--ocean-600)] text-white font-medium text-sm hover:bg-[var(--ocean-700)] active:bg-[var(--ocean-800)] disabled:opacity-50 disabled:cursor-not-allowed transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+      >
+        {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+        {scanning ? "Scanning..." : "Scan URL"}
+      </button>
+    </div>
+  );
+}
+
+function ScanProgress() {
+  const phases = [
+    "Parsing & validating URL syntax...",
+    "Analyzing homoglyphs & typosquatting...",
+    "Tracing redirect chain & hops...",
+    "Resolving DNS & MX configuration...",
+    "Querying RDAP/WHOIS registry...",
+    "Validating SSL/TLS & Security headers...",
+    "Gathering site intelligence...",
+  ];
+  const [phaseIndex, setPhaseIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPhaseIndex((prev) => (prev + 1) % phases.length);
+    }, 800);
+    return () => clearInterval(interval);
+  }, [phases.length]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="max-w-xl mx-auto p-12 text-center"
+    >
+      <div className="relative h-2 bg-[var(--ocean-100)] rounded-full overflow-hidden mb-4">
+        <motion.div
+          className="absolute inset-y-0 left-0 bg-[var(--ocean-600)]"
+          initial={{ width: "0%" }}
+          animate={{ width: "95%" }}
+          transition={{ duration: 5, ease: "linear" }}
+        />
+      </div>
+      <p className="text-sm font-medium text-[var(--ocean-800)] animate-pulse">
+        {phases[phaseIndex]}
+      </p>
+    </motion.div>
+  );
+}
 
 function FeatureCard({
   icon,
@@ -207,248 +274,226 @@ function FeatureCard({
       <div className="w-9 h-9 rounded-md bg-[var(--ocean-50)] flex items-center justify-center text-[var(--ocean-600)] mb-3">
         {icon}
       </div>
-      <h3 className="text-sm font-semibold text-[var(--gray-800)] mb-1">
-        {title}
-      </h3>
+      <h3 className="text-sm font-semibold text-[var(--gray-800)] mb-1">{title}</h3>
       <p className="text-xs text-[var(--gray-500)] leading-relaxed">{desc}</p>
     </div>
   );
 }
 
-/* ----------  Report ---------- */
-
 function Report({ result }: { result: ScanResult }) {
   return (
     <div className="space-y-6">
-      {/* Score Header */}
       <ScoreHeader result={result} />
-
-      {/* URL Info */}
+      {result.siteOverview && <SiteOverviewPanel overview={result.siteOverview} />}
       <InfoPanel result={result} />
-
-      {/* Findings */}
+      <SslHeadersPanel sslInfo={result.sslInfo} />
       {result.findings.length > 0 && <FindingsPanel findings={result.findings} />}
-
-      {/* Redirect Chain */}
-      {result.redirectChain.length > 1 && (
-        <RedirectPanel chain={result.redirectChain} />
-      )}
-
-      {/* Domain Intelligence */}
+      {result.redirectChain.length > 1 && <RedirectPanel chain={result.redirectChain} />}
       {result.domainIntel && <DomainPanel intel={result.domainIntel} />}
-
-      {/* DNS Info */}
       {result.dns && <DnsPanel dns={result.dns} />}
-
-      {/* Threat Intel */}
-      {result.threatIntel.length > 0 && (
-        <ThreatIntelPanel sources={result.threatIntel} />
-      )}
-
-      {/* Warnings */}
-      {result.warnings.length > 0 && (
-        <div className="rounded-lg border border-[var(--warning)] bg-[var(--warning-bg)] p-4 text-sm text-[var(--warning)]">
-          <p className="font-medium mb-1">Scan Warnings</p>
-          <ul className="list-disc list-inside space-y-0.5 text-xs">
-            {result.warnings.map((w, i) => (
-              <li key={i}>{w}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {result.threatIntel.length > 0 && <ThreatIntelPanel sources={result.threatIntel} />}
     </div>
   );
 }
-
-/* ----------  Score header ---------- */
 
 function ScoreHeader({ result }: { result: ScanResult }) {
   const { score, verdict } = result;
 
-  let scoreColor = "text-[var(--safe)]";
-  let scoreBg = "bg-[var(--safe-bg)]";
-  let ringColor = "ring-green-200";
-  let icon = <ShieldCheck className="w-8 h-8" />;
-
-  if (score >= 80) {
-    scoreColor = "text-[var(--danger)]";
-    scoreBg = "bg-[var(--danger-bg)]";
-    ringColor = "ring-red-200";
-    icon = <ShieldAlert className="w-8 h-8" />;
-  } else if (score >= 60) {
-    scoreColor = "text-[var(--danger)]";
-    scoreBg = "bg-[var(--danger-bg)]";
-    ringColor = "ring-red-200";
-    icon = <ShieldAlert className="w-8 h-8" />;
-  } else if (score >= 35) {
-    scoreColor = "text-[var(--warning)]";
-    scoreBg = "bg-[var(--warning-bg)]";
-    ringColor = "ring-yellow-200";
-    icon = <AlertTriangle className="w-8 h-8" />;
-  } else if (score >= 15) {
-    scoreColor = "text-[var(--ocean-600)]";
-    scoreBg = "bg-[var(--ocean-50)]";
-    ringColor = "ring-blue-200";
-    icon = <Shield className="w-8 h-8" />;
-  }
+  const colors = {
+    Dangerous: {
+      color: "text-[var(--danger)]",
+      bg: "bg-[var(--danger-bg)]",
+      ring: "ring-red-200",
+      icon: <ShieldAlert className="w-8 h-8" />,
+    },
+    "High Risk": {
+      color: "text-[var(--danger)]",
+      bg: "bg-[var(--danger-bg)]",
+      ring: "ring-red-200",
+      icon: <ShieldAlert className="w-8 h-8" />,
+    },
+    "Moderate Risk": {
+      color: "text-[var(--warning)]",
+      bg: "bg-[var(--warning-bg)]",
+      ring: "ring-yellow-200",
+      icon: <AlertTriangle className="w-8 h-8" />,
+    },
+    "Low Risk": {
+      color: "text-[var(--ocean-600)]",
+      bg: "bg-[var(--ocean-50)]",
+      ring: "ring-blue-200",
+      icon: <Shield className="w-8 h-8" />,
+    },
+    Safe: {
+      color: "text-[var(--safe)]",
+      bg: "bg-[var(--safe-bg)]",
+      ring: "ring-green-200",
+      icon: <ShieldCheck className="w-8 h-8" />,
+    },
+  };
+  const { color, bg, ring, icon } = colors[verdict] || colors.Safe;
 
   return (
-    <div
-      className={`rounded-lg p-6 ${scoreBg} border border-transparent shadow-sm`}
+    <motion.div
+      initial={{ scale: 0.98, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      className={`rounded-lg p-6 ${bg} shadow-sm border border-transparent`}
     >
       <div className="flex flex-col sm:flex-row items-center gap-5">
-        {/* Ring Score */}
         <div
-          className={`w-20 h-20 rounded-full ring-4 ${ringColor} flex items-center justify-center ${scoreBg}`}
+          className={`w-20 h-20 rounded-full ring-4 ${ring} flex items-center justify-center bg-white shadow-inner`}
         >
-          <span className={`text-2xl font-bold ${scoreColor}`}>{score}</span>
+          <span className={`text-2xl font-bold ${color}`}>{score}</span>
         </div>
-
         <div className="text-center sm:text-left flex-1">
-          <div className={`flex items-center justify-center sm:justify-start gap-2 ${scoreColor} mb-1`}>
+          <div className={`flex items-center justify-center sm:justify-start gap-2 ${color} mb-1`}>
             {icon}
             <span className="text-lg font-semibold">{verdict}</span>
           </div>
-          <p className="text-sm text-[var(--gray-600)]">
-            Risk score based on {result.findings.length} finding
-            {result.findings.length !== 1 ? "s" : ""} across {categoryCount(result.findings)}{" "}
-            detection categor{categoryCount(result.findings) !== 1 ? "ies" : "y"}
-          </p>
+          <p className="text-sm text-[var(--gray-600)]">Based on {result.findings.length} findings</p>
         </div>
+        <div className="text-xs text-[var(--gray-400)]">{new Date(result.scannedAt).toLocaleString()}</div>
+      </div>
+    </motion.div>
+  );
+}
 
-        <div className="text-xs text-[var(--gray-400)] whitespace-nowrap">
-          {new Date(result.scannedAt).toLocaleString()}
+function SiteOverviewPanel({ overview }: { overview: NonNullable<ScanResult["siteOverview"]> }) {
+  return (
+    <div className="rounded-lg border border-[var(--gray-100)] bg-white shadow-sm overflow-hidden">
+      <div className="px-4 py-3 bg-[var(--gray-50)] border-b border-[var(--gray-100)] flex items-center gap-2">
+        <Globe className="w-4 h-4 text-[var(--ocean-600)]" />
+        <h3 className="text-sm font-semibold text-[var(--gray-700)]">Website Overview & Intelligence</h3>
+      </div>
+      <div className="px-4 py-3 text-sm">
+        <p className="font-semibold text-[var(--gray-800)] mb-1">{overview.title}</p>
+        <p className="text-[var(--gray-600)] mb-3 leading-relaxed text-xs sm:text-sm">{overview.description}</p>
+        <div className="flex flex-wrap gap-2">
+          {overview.category && (
+            <span className="px-2.5 py-0.5 rounded-full bg-[var(--ocean-50)] text-[var(--ocean-700)] text-[11px] font-medium border border-[var(--ocean-100)]">
+              {overview.category}
+            </span>
+          )}
+          <span className="px-2.5 py-0.5 rounded-full bg-[var(--gray-100)] text-[var(--gray-600)] text-[11px] font-medium">
+            Source: {overview.source}
+          </span>
         </div>
       </div>
     </div>
   );
 }
-
-function categoryCount(findings: Finding[]): number {
-  return new Set(findings.map((f) => f.category)).size;
-}
-
-/* ----------  URL Info Panel ---------- */
 
 function InfoPanel({ result }: { result: ScanResult }) {
   return (
-    <div className="rounded-lg border border-[var(--gray-100)] bg-white shadow-sm overflow-hidden">
-      <div className="px-4 py-3 bg-[var(--gray-50)] border-b border-[var(--gray-100)]">
-        <h3 className="text-sm font-semibold text-[var(--gray-700)]">
-          URL Information
-        </h3>
+    <div className="rounded-lg border border-[var(--gray-100)] bg-white shadow-sm p-4 space-y-2 text-xs sm:text-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-1 border-b border-[var(--gray-50)]">
+        <span className="text-[var(--gray-500)]">Scanned URL</span>
+        <span className="font-mono text-[var(--gray-800)] break-all">{result.url}</span>
       </div>
-      <div className="px-4 py-3 space-y-2 text-sm">
-        <InfoRow label="Submitted URL" value={result.url} mono />
-        {result.finalUrl && result.finalUrl !== result.url && (
-          <InfoRow label="Final URL" value={result.finalUrl} mono />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-1 border-b border-[var(--gray-50)]">
+        <span className="text-[var(--gray-500)]">Target Hostname</span>
+        <span className="font-mono font-medium text-[var(--gray-800)]">{result.hostname}</span>
+      </div>
+      {result.finalUrl && result.finalUrl !== result.url && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 py-1">
+          <span className="text-[var(--gray-500)]">Final Destination</span>
+          <span className="font-mono text-[var(--gray-800)] break-all">{result.finalUrl}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SslHeadersPanel({ sslInfo }: { sslInfo: SslHeadersInfo | null }) {
+  if (!sslInfo) return null;
+  const checks = [
+    { label: "HTTPS Enabled", val: sslInfo.isHttps },
+    { label: "HSTS Header", val: sslInfo.hasHsts },
+    { label: "CSP Header", val: sslInfo.hasCsp },
+    { label: "X-Frame-Options", val: sslInfo.hasXFrameOptions },
+    { label: "X-Content-Type", val: sslInfo.hasXContentTypeOptions },
+  ];
+  return (
+    <div className="rounded-lg border border-[var(--gray-100)] bg-white shadow-sm overflow-hidden">
+      <div className="px-4 py-3 bg-[var(--gray-50)] border-b border-[var(--gray-100)] flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Lock className="w-4 h-4 text-[var(--ocean-600)]" />
+          <h3 className="text-sm font-semibold text-[var(--gray-700)]">Security Headers & SSL Configuration</h3>
+        </div>
+        {sslInfo.serverHeader && (
+          <span className="text-[11px] text-[var(--gray-400)] font-mono">
+            Server: {sslInfo.serverHeader}
+          </span>
         )}
-        <InfoRow label="Hostname" value={result.hostname} mono />
       </div>
-    </div>
-  );
-}
-
-function InfoRow({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-3">
-      <span className="text-[var(--gray-500)] text-xs font-medium min-w-[120px]">
-        {label}
-      </span>
-      <span
-        className={`text-[var(--gray-800)] break-all ${
-          mono ? "font-[family-name:var(--font-geist-mono)] text-xs" : ""
-        }`}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-/* ----------  Findings Panel ---------- */
-
-function FindingsPanel({ findings }: { findings: Finding[] }) {
-  // Group by category
-  const grouped: Partial<Record<FindingCategory, Finding[]>> = {};
-  for (const f of findings) {
-    if (!grouped[f.category]) grouped[f.category] = [];
-    grouped[f.category]!.push(f);
-  }
-
-  const categoryLabels: Record<FindingCategory, { label: string; icon: React.ReactNode }> = {
-    homoglyph: { label: "Homoglyph & Punycode", icon: <FileWarning className="w-4 h-4" /> },
-    typosquat: { label: "Typosquatting", icon: <Search className="w-4 h-4" /> },
-    structure: { label: "Structural Red Flags", icon: <AlertTriangle className="w-4 h-4" /> },
-    redirect: { label: "Redirect Analysis", icon: <ExternalLink className="w-4 h-4" /> },
-    "domain-intel": { label: "Domain Intelligence", icon: <Globe className="w-4 h-4" /> },
-    dns: { label: "DNS Records", icon: <Server className="w-4 h-4" /> },
-    "threat-intel": { label: "Threat Intelligence", icon: <Shield className="w-4 h-4" /> },
-  };
-
-  return (
-    <div className="rounded-lg border border-[var(--gray-100)] bg-white shadow-sm overflow-hidden">
-      <div className="px-4 py-3 bg-[var(--gray-50)] border-b border-[var(--gray-100)]">
-        <h3 className="text-sm font-semibold text-[var(--gray-700)]">
-          Findings ({findings.length})
-        </h3>
-      </div>
-      <div className="divide-y divide-[var(--gray-100)]">
-        {(Object.keys(grouped) as FindingCategory[]).map((cat) => (
-          <FindingGroup
-            key={cat}
-            icon={categoryLabels[cat]?.icon}
-            label={categoryLabels[cat]?.label ?? cat}
-            findings={grouped[cat] ?? []}
-          />
+      <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {checks.map((c, i) => (
+          <div key={i} className="flex items-center gap-2 text-xs text-[var(--gray-700)] font-medium">
+            <span
+              className={`w-2.5 h-2.5 rounded-full ${
+                c.val ? "bg-[var(--safe)] shadow-[0_0_6px_rgba(22,163,74,0.4)]" : "bg-[var(--gray-300)]"
+              }`}
+            />
+            {c.label}
+          </div>
         ))}
       </div>
     </div>
   );
 }
 
-function FindingGroup({
-  icon,
-  label,
-  findings,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  findings: Finding[];
-}) {
+function FindingsPanel({ findings }: { findings: Finding[] }) {
+  const categories: Record<FindingCategory, string> = {
+    homoglyph: "Homoglyphs & Character Spoofing",
+    typosquat: "Typosquatting & Lookalike Domains",
+    structure: "URL Structural Indicators",
+    redirect: "Redirect & Cloaking Behavior",
+    "domain-intel": "Domain Registration & Age",
+    dns: "DNS & Mail Exchange (MX) Configuration",
+    "threat-intel": "Threat Intelligence Blacklists",
+    ssl: "SSL/TLS & Security Headers",
+  };
+
+  const grouped = findings.reduce<Record<string, Finding[]>>((acc, f) => {
+    acc[f.category] = acc[f.category] || [];
+    acc[f.category].push(f);
+    return acc;
+  }, {});
+
+  return (
+    <div className="rounded-lg border border-[var(--gray-100)] bg-white shadow-sm overflow-hidden">
+      <div className="px-4 py-3 bg-[var(--gray-50)] border-b border-[var(--gray-100)] flex items-center gap-2">
+        <AlertTriangle className="w-4 h-4 text-[var(--ocean-600)]" />
+        <h3 className="text-sm font-semibold text-[var(--gray-700)]">Detailed Findings ({findings.length})</h3>
+      </div>
+      <div className="divide-y divide-[var(--gray-100)]">
+        {(Object.keys(grouped) as FindingCategory[]).map((cat) => (
+          <FindingGroup key={cat} title={categories[cat] || cat} findings={grouped[cat]} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FindingGroup({ title, findings }: { title: string; findings: Finding[] }) {
   const [open, setOpen] = useState(true);
 
   return (
-    <div>
+    <div className="p-4">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-4 py-3 hover:bg-[var(--gray-50)] transition cursor-pointer"
+        className="w-full flex items-center justify-between text-left font-semibold text-xs text-[var(--gray-700)] mb-2"
       >
-        <span className="text-[var(--ocean-600)]">{icon}</span>
-        <span className="text-sm font-medium text-[var(--gray-700)] flex-1 text-left">
-          {label}
+        <span>
+          {title} ({findings.length})
         </span>
-        <span className="text-xs text-[var(--gray-400)] mr-2">
-          {findings.length}
-        </span>
-        {open ? (
-          <ChevronUp className="w-4 h-4 text-[var(--gray-400)]" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-[var(--gray-400)]" />
-        )}
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-[var(--gray-400)]" /> : <ChevronDown className="w-3.5 h-3.5 text-[var(--gray-400)]" />}
       </button>
+
       {open && (
-        <div className="px-4 pb-3 space-y-3">
-          {findings.map((f, i) => (
-            <FindingItem key={i} finding={f} />
+        <div className="space-y-2.5 mt-2">
+          {findings.map((f) => (
+            <FindingItem key={f.id} finding={f} />
           ))}
         </div>
       )}
@@ -457,61 +502,39 @@ function FindingGroup({
 }
 
 function FindingItem({ finding }: { finding: Finding }) {
-  let severityColor = "bg-green-100 text-green-700";
-  if (finding.severity >= 30) {
-    severityColor = "bg-red-100 text-red-700";
-  } else if (finding.severity >= 15) {
-    severityColor = "bg-yellow-100 text-yellow-700";
-  }
+  const severityBadge = (sev: number) => {
+    if (sev >= 40) return "bg-red-50 text-red-700 border-red-200";
+    if (sev >= 20) return "bg-yellow-50 text-yellow-700 border-yellow-200";
+    return "bg-blue-50 text-blue-700 border-blue-200";
+  };
 
   return (
-    <div className="rounded-md border border-[var(--gray-100)] p-3 bg-[var(--gray-50)]">
-      <div className="flex items-start justify-between gap-2 mb-1.5">
-        <h4 className="text-sm font-medium text-[var(--gray-800)]">
-          {finding.label}
-        </h4>
-        <span
-          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${severityColor}`}
-        >
-          +{finding.severity} pts
+    <div className="p-3 rounded-md bg-[var(--gray-50)] border border-[var(--gray-100)] text-xs">
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-medium text-[var(--gray-900)]">{finding.label}</span>
+        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${severityBadge(finding.severity)}`}>
+          +{finding.severity} Risk
         </span>
       </div>
-      <p className="text-xs text-[var(--gray-500)] leading-relaxed">
-        {finding.description}
-      </p>
+      <p className="text-[var(--gray-600)] leading-relaxed">{finding.description}</p>
     </div>
   );
 }
-
-/* ----------  Redirect Chain ---------- */
 
 function RedirectPanel({ chain }: { chain: RedirectHop[] }) {
   return (
     <div className="rounded-lg border border-[var(--gray-100)] bg-white shadow-sm overflow-hidden">
       <div className="px-4 py-3 bg-[var(--gray-50)] border-b border-[var(--gray-100)] flex items-center gap-2">
-        <History className="w-4 h-4 text-[var(--ocean-600)]" />
-        <h3 className="text-sm font-semibold text-[var(--gray-700)]">
-          Redirect Chain ({chain.length} hops)
-        </h3>
+        <Link className="w-4 h-4 text-[var(--ocean-600)]" />
+        <h3 className="text-sm font-semibold text-[var(--gray-700)]">Redirect Chain ({chain.length} Hops)</h3>
       </div>
-      <div className="px-4 py-3 space-y-2">
+      <div className="p-4 space-y-3">
         {chain.map((hop, i) => (
-          <div key={i} className="flex items-center gap-2 text-xs">
-            <span className="w-6 h-6 rounded-full bg-[var(--ocean-50)] text-[var(--ocean-600)] font-semibold flex items-center justify-center text-[10px] shrink-0">
-              {i + 1}
+          <div key={i} className="flex items-start gap-3 text-xs">
+            <span className="px-2 py-0.5 rounded bg-[var(--gray-100)] text-[var(--gray-700)] font-mono font-medium">
+              {hop.statusCode || "Final"}
             </span>
-            <span
-              className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                hop.statusCode >= 300 && hop.statusCode < 400
-                  ? "bg-yellow-100 text-yellow-700"
-                  : "bg-green-100 text-green-700"
-              }`}
-            >
-              {hop.statusCode}
-            </span>
-            <span className="text-[var(--gray-600)] font-[family-name:var(--font-geist-mono)] break-all">
-              {hop.url}
-            </span>
+            <span className="font-mono text-[var(--gray-800)] break-all mt-0.5">{hop.url}</span>
           </div>
         ))}
       </div>
@@ -519,125 +542,107 @@ function RedirectPanel({ chain }: { chain: RedirectHop[] }) {
   );
 }
 
-/* ----------  Domain Intelligence ---------- */
-
 function DomainPanel({ intel }: { intel: NonNullable<ScanResult["domainIntel"]> }) {
   return (
     <div className="rounded-lg border border-[var(--gray-100)] bg-white shadow-sm overflow-hidden">
       <div className="px-4 py-3 bg-[var(--gray-50)] border-b border-[var(--gray-100)] flex items-center gap-2">
-        <Globe className="w-4 h-4 text-[var(--ocean-600)]" />
-        <h3 className="text-sm font-semibold text-[var(--gray-700)]">
-          Domain Intelligence
-        </h3>
+        <History className="w-4 h-4 text-[var(--ocean-600)]" />
+        <h3 className="text-sm font-semibold text-[var(--gray-700)]">Domain Intelligence (RDAP/WHOIS)</h3>
       </div>
-      <div className="px-4 py-3 space-y-2 text-sm">
-        {intel.registrar && (
-          <InfoRow label="Registrar" value={intel.registrar} />
-        )}
-        {intel.creationDate && (
-          <InfoRow
-            label="Registered"
-            value={new Date(intel.creationDate).toLocaleDateString()}
-          />
-        )}
-        {intel.expirationDate && (
-          <InfoRow
-            label="Expires"
-            value={new Date(intel.expirationDate).toLocaleDateString()}
-          />
-        )}
-        {intel.domainAgeDays !== null && (
-          <InfoRow label="Domain Age" value={`${intel.domainAgeDays} days`} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ----------  DNS Panel ---------- */
-
-function DnsPanel({ dns }: { dns: NonNullable<ScanResult["dns"]> }) {
-  return (
-    <div className="rounded-lg border border-[var(--gray-100)] bg-white shadow-sm overflow-hidden">
-      <div className="px-4 py-3 bg-[var(--gray-50)] border-b border-[var(--gray-100)] flex items-center gap-2">
-        <Server className="w-4 h-4 text-[var(--ocean-600)]" />
-        <h3 className="text-sm font-semibold text-[var(--gray-700)]">
-          DNS Records
-        </h3>
-      </div>
-      <div className="px-4 py-3 space-y-2 text-sm">
-        <InfoRow
-          label="Resolves"
-          value={dns.resolves ? "Yes" : "No"}
-        />
-        {dns.aRecords.length > 0 && (
-          <InfoRow
-            label="A Records"
-            value={dns.aRecords.join(", ")}
-            mono
-          />
-        )}
-        <div className="flex items-center gap-2">
-          <Mail className="w-3.5 h-3.5 text-[var(--gray-400)]" />
-          <InfoRow
-            label="MX Records"
-            value={
-              dns.mxRecords.length > 0
-                ? dns.mxRecords.join(", ")
-                : "None"
-            }
-            mono
-          />
+      <div className="p-4 grid sm:grid-cols-2 gap-3 text-xs">
+        <div>
+          <span className="text-[var(--gray-500)] block mb-0.5">Registrar</span>
+          <span className="font-medium text-[var(--gray-800)]">{intel.registrar || "Not disclosed / Private"}</span>
+        </div>
+        <div>
+          <span className="text-[var(--gray-500)] block mb-0.5">Domain Age</span>
+          <span className="font-medium text-[var(--gray-800)]">
+            {intel.domainAgeDays !== null ? `${intel.domainAgeDays} days old` : "Unknown"}
+          </span>
+        </div>
+        <div>
+          <span className="text-[var(--gray-500)] block mb-0.5">Creation Date</span>
+          <span className="font-medium text-[var(--gray-800)]">
+            {intel.creationDate ? new Date(intel.creationDate).toLocaleDateString() : "Unknown"}
+          </span>
+        </div>
+        <div>
+          <span className="text-[var(--gray-500)] block mb-0.5">Expiration Date</span>
+          <span className="font-medium text-[var(--gray-800)]">
+            {intel.expirationDate ? new Date(intel.expirationDate).toLocaleDateString() : "Unknown"}
+          </span>
         </div>
       </div>
     </div>
   );
 }
 
-/* ----------  Threat Intelligence ---------- */
+function DnsPanel({ dns }: { dns: NonNullable<ScanResult["dns"]> }) {
+  return (
+    <div className="rounded-lg border border-[var(--gray-100)] bg-white shadow-sm overflow-hidden">
+      <div className="px-4 py-3 bg-[var(--gray-50)] border-b border-[var(--gray-100)] flex items-center gap-2">
+        <Server className="w-4 h-4 text-[var(--ocean-600)]" />
+        <h3 className="text-sm font-semibold text-[var(--gray-700)]">DNS & Mail Exchange (MX)</h3>
+      </div>
+      <div className="p-4 space-y-3 text-xs">
+        <div>
+          <span className="text-[var(--gray-500)] block mb-1">A Records (IP Addresses)</span>
+          <div className="flex flex-wrap gap-2">
+            {dns.aRecords.length > 0 ? (
+              dns.aRecords.map((ip, i) => (
+                <span key={i} className="font-mono bg-[var(--gray-50)] border border-[var(--gray-100)] px-2 py-0.5 rounded">
+                  {ip}
+                </span>
+              ))
+            ) : (
+              <span className="text-[var(--gray-400)]">None resolved</span>
+            )}
+          </div>
+        </div>
+        <div>
+          <span className="text-[var(--gray-500)] block mb-1">MX Records (Mail Servers)</span>
+          <div className="flex flex-wrap gap-2">
+            {dns.mxRecords.length > 0 ? (
+              dns.mxRecords.map((mx, i) => (
+                <span key={i} className="font-mono bg-[var(--gray-50)] border border-[var(--gray-100)] px-2 py-0.5 rounded">
+                  {mx}
+                </span>
+              ))
+            ) : (
+              <span className="text-[var(--gray-400)]">No MX records configured</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-function ThreatIntelPanel({
-  sources,
-}: {
-  sources: ScanResult["threatIntel"];
-}) {
+function ThreatIntelPanel({ sources }: { sources: NonNullable<ScanResult["threatIntel"]> }) {
   return (
     <div className="rounded-lg border border-[var(--gray-100)] bg-white shadow-sm overflow-hidden">
       <div className="px-4 py-3 bg-[var(--gray-50)] border-b border-[var(--gray-100)] flex items-center gap-2">
         <Shield className="w-4 h-4 text-[var(--ocean-600)]" />
-        <h3 className="text-sm font-semibold text-[var(--gray-700)]">
-          Threat Intelligence
-        </h3>
+        <h3 className="text-sm font-semibold text-[var(--gray-700)]">Threat Intelligence Blacklists</h3>
       </div>
-      <div className="divide-y divide-[var(--gray-100)]">
-        {sources.map((src, i) => (
-          <div key={i} className="px-4 py-3 flex items-start gap-3">
-            <span
-              className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${
-                src.flagged ? "bg-[var(--danger)]" : "bg-[var(--safe)]"
-              }`}
-            />
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-[var(--gray-800)]">
-                  {src.source}
-                </span>
-                <span
-                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                    src.flagged
-                      ? "bg-red-100 text-red-700"
-                      : "bg-green-100 text-green-700"
-                  }`}
-                >
-                  {src.flagged ? "FLAGGED" : "CLEAN"}
-                </span>
-              </div>
-              {src.details && (
-                <p className="text-xs text-[var(--gray-500)] mt-0.5">
-                  {src.details}
-                </p>
-              )}
+      <div className="p-4 divide-y divide-[var(--gray-50)]">
+        {sources.map((s, i) => (
+          <div key={i} className="py-3 first:pt-0 last:pb-0 text-xs">
+            <div className="flex items-center justify-between mb-1">
+              <span className="font-medium text-[var(--gray-800)]">{s.source}</span>
+              <span
+                className={`px-2 py-0.5 rounded font-semibold text-[10px] ${
+                  s.flagged ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"
+                }`}
+              >
+                {s.flagged ? "MALICIOUS" : "CLEAN"}
+              </span>
             </div>
+            {s.flagged && s.details && (
+              <div className="text-[var(--gray-500)] mt-1.5 leading-relaxed bg-[var(--gray-50)] p-2 rounded border border-[var(--gray-100)]">
+                {s.details}
+              </div>
+            )}
           </div>
         ))}
       </div>
