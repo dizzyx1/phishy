@@ -1,4 +1,4 @@
-# Phishy
+# Phishr
 
 A professional web application that detects and scans URLs for phishing and malicious links. Built with Next.js 15, TypeScript, and a comprehensive suite of detection algorithms.
 
@@ -82,7 +82,7 @@ A professional web application that detects and scans URLs for phishing and mali
 1. Clone the repository:
 ```bash
 git clone <your-repo-url>
-cd phishy
+cd phishr
 ```
 
 2. Install dependencies:
@@ -127,7 +127,7 @@ npm start
 ## Project Structure
 
 ```
-phishy/
+phishr/
 ├── src/
 │   ├── app/
 │   │   ├── api/
@@ -242,8 +242,8 @@ Add your API keys as environment variables in the Vercel dashboard.
 ### Docker
 
 ```bash
-docker build -t phishy .
-docker run -p 3000:3000 phishy
+docker build -t phishr .
+docker run -p 3000:3000 phishr
 ```
 
 ---

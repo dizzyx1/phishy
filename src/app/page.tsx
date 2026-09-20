@@ -80,7 +80,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
           <Shield className="w-7 h-7 text-[var(--ocean-600)]" strokeWidth={2} />
           <h1 className="text-xl font-semibold text-[var(--gray-900)] tracking-tight">
-            Phishy
+            Phishr
           </h1>
         </div>
       </header>
@@ -184,7 +184,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-[var(--gray-100)] bg-white py-4">
         <div className="max-w-4xl mx-auto px-4 text-center text-xs text-[var(--gray-400)]">
-          Phishy — URL Security Scanner
+          Phishr — URL Security Scanner
         </div>
       </footer>
     </div>

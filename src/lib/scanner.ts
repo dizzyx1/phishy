@@ -1,5 +1,5 @@
 /**
- * Phishy Core Scanner Engine
+ * Phishr Core Scanner Engine
  *
  * Orchestrates all individual detection modules and aggregates findings
  * into a single unified 0-100 risk score.

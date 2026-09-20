@@ -25,7 +25,7 @@ export async function checkThreatIntel(
           const res = await axios.post(
             `https://safebrowsing.googleapis.com/v4/threatMatches:find?key=${process.env.GOOGLE_SAFE_BROWSING_KEY}`,
             {
-              client: { clientId: "phishy-scanner", clientVersion: "1.0.0" },
+              client: { clientId: "phishr-scanner", clientVersion: "1.0.0" },
               threatInfo: {
                 threatTypes: [
                   "MALWARE",

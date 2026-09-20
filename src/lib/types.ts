@@ -1,4 +1,4 @@
-/** Shared types for Phishy analysis engine */
+/** Shared types for Phishr analysis engine */
 
 export interface Finding {
   /** Machine-readable ID, e.g. "homoglyph-cyrillic" */

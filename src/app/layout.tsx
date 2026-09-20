@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Phishy — URL Phishing Scanner",
+  title: "Phishr — URL Phishing Scanner",
   description:
     "Professional URL scanner that detects phishing, malicious links, homoglyphs, typosquatting, and structural red flags. Instant 0-100 risk scores.",
   keywords: [
