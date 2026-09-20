@@ -3,10 +3,21 @@
  *
  * Queries DNS A and MX records to verify the domain resolves and has
  * valid mail exchange configuration.
+ *
+ * Note: Node.js dns module may not work in serverless environments like Vercel.
+ * This function gracefully degrades when dns is unavailable.
  */
 
-import { promises as dns } from "dns";
 import type { DnsInfo, Finding } from "../types";
+
+// Dynamically import dns only if available (won't work in Vercel edge/serverless)
+let dns: typeof import("dns").promises | null = null;
+try {
+  // @ts-ignore - dynamic import
+  dns = require("dns").promises;
+} catch {
+  // DNS module not available in this environment
+}
 
 export async function checkDns(hostname: string): Promise<{
   dns: DnsInfo | null;
@@ -17,6 +28,14 @@ export async function checkDns(hostname: string): Promise<{
   let mxRecords: string[] = [];
   let resolves = false;
   let hasValidMx = false;
+
+  // Skip DNS checks if module is unavailable (serverless environment)
+  if (!dns) {
+    return {
+      dns: null,
+      findings: [],
+    };
+  }
 
   try {
     // A records (IPv4)
