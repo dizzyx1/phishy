@@ -46,7 +46,7 @@ export async function checkThreatIntel(
             source: "Google Safe Browsing",
             flagged: Boolean(matches && matches.length > 0),
             details: matches
-              ? matches.map((m: any) => m.threatType).join(", ")
+              ? matches.map((m: { threatType: string }) => m.threatType).join(", ")
               : "No threats detected",
           });
         } catch {
@@ -77,13 +77,13 @@ export async function checkThreatIntel(
             }
           );
 
-          const stats = res.data?.data?.attributes?.last_analysis_stats;
+          const stats = res.data?.data?.attributes?.last_analysis_stats as Record<string, number> | undefined;
           const maliciousCount = (stats?.malicious ?? 0) + (stats?.suspicious ?? 0);
           results.push({
             source: "VirusTotal",
             flagged: maliciousCount > 0,
             details: stats
-              ? `${maliciousCount} / ${Object.values(stats).reduce((a: any, b: any) => a + b, 0)} security vendors flagged this URL`
+              ? `${maliciousCount} / ${Object.values(stats).reduce((a, b) => a + b, 0)} security vendors flagged this URL`
               : "No report available",
           });
         } catch {
@@ -112,7 +112,7 @@ export async function checkThreatIntel(
 
           const hits = res.data?.results ?? [];
           const maliciousHits = hits.filter(
-            (h: any) => h.verdicts?.overall?.malicious
+            (h: { verdicts?: { overall?: { malicious?: boolean } } }) => h.verdicts?.overall?.malicious
           );
 
           results.push({

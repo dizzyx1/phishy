@@ -5,7 +5,7 @@
  * the final landing page. Detects URL shorteners and open redirects.
  */
 
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 import type { Finding, RedirectHop } from "../types";
 
 const MAX_REDIRECTS = 10;
@@ -44,7 +44,7 @@ export async function unrollRedirects(
         // Final destination reached
         break;
       }
-    } catch (err) {
+    } catch {
       // On error, record what we have and bail
       break;
     }

@@ -378,10 +378,10 @@ function InfoRow({
 
 function FindingsPanel({ findings }: { findings: Finding[] }) {
   // Group by category
-  const grouped: Record<FindingCategory, Finding[]> = {} as any;
+  const grouped: Partial<Record<FindingCategory, Finding[]>> = {};
   for (const f of findings) {
     if (!grouped[f.category]) grouped[f.category] = [];
-    grouped[f.category].push(f);
+    grouped[f.category]!.push(f);
   }
 
   const categoryLabels: Record<FindingCategory, { label: string; icon: React.ReactNode }> = {
@@ -407,7 +407,7 @@ function FindingsPanel({ findings }: { findings: Finding[] }) {
             key={cat}
             icon={categoryLabels[cat]?.icon}
             label={categoryLabels[cat]?.label ?? cat}
-            findings={grouped[cat]}
+            findings={grouped[cat] ?? []}
           />
         ))}
       </div>
