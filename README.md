@@ -1,5 +1,7 @@
 # Phishr
 
+> **Live Demo:** [https://phishr-nt.vercel.app](https://phishr-nt.vercel.app)
+
 A professional web application that detects and scans URLs for phishing and malicious links. Built with Next.js 15, TypeScript, and a comprehensive suite of detection algorithms.
 
 ## Features
