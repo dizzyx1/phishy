@@ -61,12 +61,10 @@ A web application that detects and scans URLs for phishing and malicious links. 
 
 ### UI/UX
 
-- Clean, professional white & ocean-blue color palette
 - Fully responsive (desktop and mobile)
 - No signup required
 - Simple single-page interface:
   - URL input box
-  - Scan button
   - Comprehensive report with detailed findings
 - Grouped findings by category
 - Expandable sections for easy navigation
