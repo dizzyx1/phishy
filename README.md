@@ -83,7 +83,7 @@ A professional web application that detects and scans URLs for phishing and mali
 
 1. Clone the repository:
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/dizzyx1/phishr
 cd phishr
 ```
 
